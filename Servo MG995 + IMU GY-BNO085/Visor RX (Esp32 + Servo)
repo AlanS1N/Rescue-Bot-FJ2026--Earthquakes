@@ -1,0 +1,53 @@
+/////////////////////// VISOR RX (SERVO) ///////////////////////
+#include <esp_now.h>
+#include <WiFi.h>
+#include <ESP32Servo.h>
+
+Servo servo;
+
+typedef struct {
+  float yaw;
+} Data;
+
+Data incoming;
+
+float filtered = 0;
+
+void onReceive(const esp_now_recv_info *info, const uint8_t *data, int len) {
+  if (len == sizeof(incoming)) {
+    memcpy(&incoming, data, sizeof(incoming));
+
+    // FILTER POR SERVO MOVEMENT
+    filtered = 0.5 * filtered + 0.5 * incoming.yaw;
+
+    // Range
+    float angle = constrain(filtered, -90, 90);
+
+    // Mapping
+    int servoPos = map(angle, -90, 90, 0, 180);
+
+    servo.write(servoPos);
+
+    Serial.print("Servo: ");
+    Serial.println(servoPos);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  WiFi.mode(WIFI_STA);
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error ESP-NOW");
+    return;
+  }
+
+  esp_now_register_recv_cb(onReceive);
+
+  servo.attach(18); // PIN18 OF ESP32
+
+  Serial.println("Listo para recibir datos");
+}
+
+void loop() {}
