@@ -1,0 +1,146 @@
+// ============================================================
+//        - x3 IBT-2        (H Bridge)
+//        - x6 JGB37-520B   (Motor)
+//        - Flysky FS iA10B (Rx)
+//        - Flysky FS i6X   (Controller)
+//
+//     MAKE SURE TO BIND CORRECTLY THE CONTROLLER
+// ============================================================
+
+// ----------- IBT-2 #1 -----------
+const int RPWM = 25;
+const int LPWM = 26;
+const int R_EN = 27;
+const int L_EN = 14;
+
+// ----------- IBT-2 #2 -----------
+const int RPWM2 = 33;
+const int LPWM2 = 32;
+const int R_EN2 = 13;
+const int L_EN2 = 12;
+
+// ----------- IBT-2 #3 -----------
+const int RPWM3 = 4;
+const int LPWM3 = 18;
+const int R_EN3 = 19;
+const int L_EN3 = 21;
+
+// ----------- iBUS -----------
+uint16_t canalFiltrado = 1500;
+unsigned long ultimaLectura = 0;
+
+void leerIBus() {
+  while (Serial2.available()) {
+    static uint8_t buffer[32];
+    static uint8_t indice = 0;
+
+    uint8_t byteRecibido = Serial2.read();
+
+    if (indice == 0 && byteRecibido != 0x20) continue;
+    if (indice == 1 && byteRecibido != 0x40) { indice = 0; continue; }
+
+    buffer[indice++] = byteRecibido;
+
+    if (indice == 32) {
+      uint16_t tempCH2 = buffer[2 + 1 * 2] | (buffer[3 + 1 * 2] << 8);
+
+      if (tempCH2 >= 800 && tempCH2 <= 2200) {
+        canalFiltrado = (canalFiltrado * 0.7) + (tempCH2 * 0.3);
+        ultimaLectura = millis();
+      }
+      indice = 0;
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  Serial2.begin(115200, SERIAL_8N1, 16, -1);              // iBus RX Connected to PIN16 !!!
+  Serial2.setTimeout(0);
+
+  // ENABLE ALL
+  pinMode(R_EN, OUTPUT);
+  pinMode(L_EN, OUTPUT);
+  digitalWrite(R_EN, HIGH);
+  digitalWrite(L_EN, HIGH);
+
+  pinMode(R_EN2, OUTPUT);
+  pinMode(L_EN2, OUTPUT);
+  digitalWrite(R_EN2, HIGH);
+  digitalWrite(L_EN2, HIGH);
+
+  pinMode(R_EN3, OUTPUT);
+  pinMode(L_EN3, OUTPUT);
+  digitalWrite(R_EN3, HIGH);
+  digitalWrite(L_EN3, HIGH);
+
+  // PWM (core 3.x)
+  ledcAttach(RPWM, 20000, 8);
+  ledcAttach(LPWM, 20000, 8);
+
+  ledcAttach(RPWM2, 20000, 8);
+  ledcAttach(LPWM2, 20000, 8);
+
+  ledcAttach(RPWM3, 20000, 8);
+  ledcAttach(LPWM3, 20000, 8);
+
+  Serial.println("Triple IBT-2 listo");
+}
+
+void loop() {
+  leerIBus();
+
+  if (millis() - ultimaLectura > 250) {
+    frenar();
+  } else {
+    int velocidad = map(canalFiltrado, 1000, 2000, -255, 255);
+
+    if (abs(velocidad) < 48) velocidad = 0;
+
+    moverRobot(velocidad);
+  }
+}
+
+void moverRobot(int v) {
+  if (v > 0) {
+    // #1
+    ledcWrite(LPWM, 0);
+    ledcWrite(RPWM, v);
+
+    // #2
+    ledcWrite(LPWM2, 0);
+    ledcWrite(RPWM2, v);
+
+    // #3
+    ledcWrite(LPWM3, 0);
+    ledcWrite(RPWM3, v);
+  } 
+  else if (v < 0) {
+    // #1
+    ledcWrite(RPWM, 0);
+    ledcWrite(LPWM, abs(v));
+
+    // #2
+    ledcWrite(RPWM2, 0);
+    ledcWrite(LPWM2, abs(v));
+
+    // #3
+    ledcWrite(RPWM3, 0);
+    ledcWrite(LPWM3, abs(v));
+  } 
+  else {
+    frenar();
+  }
+}
+
+void frenar() {
+  ledcWrite(RPWM, 0);
+  ledcWrite(LPWM, 0);
+
+  ledcWrite(RPWM2, 0);
+  ledcWrite(LPWM2, 0);
+
+  ledcWrite(RPWM3, 0);
+  ledcWrite(LPWM3, 0);
+}
