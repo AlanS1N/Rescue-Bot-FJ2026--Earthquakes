@@ -12,3 +12,7 @@ The system **will be** validated in a simulated disaster scenario to evaluate te
   3. Camara movement throguh head tracking.
   4. Trained algorithm to detect and diagnose structural damages.
   5. Rocker bogie suspension.
+
+**Materials**
+
+The material list that will be used can be view in the following link: https://drive.google.com/file/d/1eDVvzsZ775hDuO4tCnIH2VL-glJ5xKtD/view?usp=sharing
