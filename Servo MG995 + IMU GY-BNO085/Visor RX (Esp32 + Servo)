@@ -1,35 +1,45 @@
-/////////////////////// VISOR RX (SERVO) ///////////////////////
+/////////////////////// VISOR RX (2 DOF GIMBAL) ///////////////////////
 #include <esp_now.h>
 #include <WiFi.h>
 #include <ESP32Servo.h>
 
-Servo servo;
+Servo servoYaw;   // Left/Right
+Servo servoPitch; // Up/Down
 
 typedef struct {
   float yaw;
+  float pitch;
 } Data;
 
 Data incoming;
 
-float filtered = 0;
+float filteredYaw = 0;
+float filteredPitch = 0;
 
 void onReceive(const esp_now_recv_info *info, const uint8_t *data, int len) {
   if (len == sizeof(incoming)) {
     memcpy(&incoming, data, sizeof(incoming));
 
-    // FILTER POR SERVO MOVEMENT
-    filtered = 0.5 * filtered + 0.5 * incoming.yaw;
+    // FILTRO SUAVE (evita movimientos bruscos)
+    filteredYaw   = 0.5 * filteredYaw   + 0.5 * incoming.yaw;
+    filteredPitch = 0.5 * filteredPitch + 0.5 * incoming.pitch;
 
-    // Range
-    float angle = constrain(filtered, -90, 90);
+    // Limitar rango (ajústalo según tu IMU)
+    float yaw   = constrain(filteredYaw,   -90, 90);
+    float pitch = constrain(filteredPitch, -45, 45); // pitch suele ser menor
 
-    // Mapping
-    int servoPos = map(angle, -90, 90, 0, 180);
+    // Mapear a servos
+    int posYaw   = map(yaw,   -90, 90, 0, 180);
+    int posPitch = map(pitch, -45, 45, 0, 180);
 
-    servo.write(servoPos);
+    // Mover servos
+    servoYaw.write(posYaw);
+    servoPitch.write(posPitch);
 
-    Serial.print("Servo: ");
-    Serial.println(servoPos);
+    Serial.print("Yaw: ");
+    Serial.print(posYaw);
+    Serial.print(" | Pitch: ");
+    Serial.println(posPitch);
   }
 }
 
@@ -45,7 +55,9 @@ void setup() {
 
   esp_now_register_recv_cb(onReceive);
 
-  servo.attach(18); // PIN18 OF ESP32
+  // Pines
+  servoYaw.attach(18);   // izquierda/derecha
+  servoPitch.attach(5);  // arriba/abajo
 
   Serial.println("Listo para recibir datos");
 }
