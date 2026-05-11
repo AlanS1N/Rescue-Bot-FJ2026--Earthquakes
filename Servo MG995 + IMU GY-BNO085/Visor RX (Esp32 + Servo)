@@ -1,65 +1,238 @@
-/////////////////////// VISOR RX (2 DOF GIMBAL) ///////////////////////
-#include <esp_now.h>
+/////////////////////// VISOR RX ///////////////////////
+
 #include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
 #include <ESP32Servo.h>
 
-Servo servoYaw;   // Left/Right
-Servo servoPitch; // Up/Down
+Servo servoYaw;
+Servo servoPitch;
 
 typedef struct {
   float yaw;
   float pitch;
-} Data;
+} DataPacket;
 
-Data incoming;
+DataPacket incoming;
 
-float filteredYaw = 0;
-float filteredPitch = 0;
+// =========================
+// YAW VARIABLES
+// =========================
 
-void onReceive(const esp_now_recv_info *info, const uint8_t *data, int len) {
+float continuousYaw = 0;
+float lastRawYaw = 0;
+bool firstYaw = true;
+
+// Objetivos servos
+volatile int targetYaw = 90;
+volatile int targetPitch = 90;
+
+// Posiciones actuales suavizadas
+float currentYaw = 90;
+float currentPitch = 90;
+
+// =========================
+// SERVOS RANGE
+// =========================
+
+const int YAW_MIN = 20;
+const int YAW_MAX = 160;
+
+const int PITCH_MIN = 30;
+const int PITCH_MAX = 150;
+
+// Callback recepción ESP-NOW
+void onReceive(
+  const esp_now_recv_info *info,
+  const uint8_t *data,
+  int len
+) {
+
+  static unsigned long lastUpdate = 0;
+
+  if (millis() - lastUpdate < 10)
+    return;
+
+  lastUpdate = millis();
+
   if (len == sizeof(incoming)) {
-    memcpy(&incoming, data, sizeof(incoming));
 
-    // FILTRO SUAVE (evita movimientos bruscos)
-    filteredYaw   = 0.5 * filteredYaw   + 0.5 * incoming.yaw;
-    filteredPitch = 0.5 * filteredPitch + 0.5 * incoming.pitch;
+    memcpy(
+      &incoming,
+      data,
+      sizeof(incoming)
+    );
 
-    // Limitar rango (ajústalo según tu IMU)
-    float yaw   = constrain(filteredYaw,   -90, 90);
-    float pitch = constrain(filteredPitch, -45, 45); // pitch suele ser menor
+    // =========================
+    // YAW
+    // =========================
 
-    // Mapear a servos
-    int posYaw   = map(yaw,   -90, 90, 0, 180);
-    int posPitch = map(pitch, -45, 45, 0, 180);
+    float rawYaw = incoming.yaw;
 
-    // Mover servos
-    servoYaw.write(posYaw);
-    servoPitch.write(posPitch);
+    // =========================
+    // UNWRAP YAW
+    // Try to avoid ±180/360
+    // =========================
 
-    Serial.print("Yaw: ");
-    Serial.print(posYaw);
-    Serial.print(" | Pitch: ");
-    Serial.println(posPitch);
+    if (firstYaw) {
+
+      continuousYaw = rawYaw;
+      lastRawYaw = rawYaw;
+      firstYaw = false;
+    }
+
+    float deltaYaw = rawYaw - lastRawYaw;
+
+    // Cruce positivo
+    if (deltaYaw > 180)
+      deltaYaw -= 360;
+
+    // Cruce negativo
+    if (deltaYaw < -180)
+      deltaYaw += 360;
+
+    continuousYaw += deltaYaw;
+
+    lastRawYaw = rawYaw;
+
+    // =========================
+    // YAW LIMIT
+    // =========================
+
+    float yaw =
+      constrain(
+        continuousYaw,
+        -90,
+        90
+      );
+
+    // =========================
+    // PITCH
+    // =========================
+
+    float pitch =
+      constrain(
+        incoming.pitch + 45,
+        -90,
+        90
+      );
+
+    // =========================
+    // MAPPING
+    // =========================
+
+    int yawServoPos = map(
+      (int)yaw,
+      -90,
+      90,
+      YAW_MIN,
+      YAW_MAX
+    );
+
+    int pitchServoPos = map(
+      (int)pitch,
+      -90,
+      90,
+      PITCH_MIN,
+      PITCH_MAX
+    );
+
+    // Protection
+    yawServoPos =
+      constrain(
+        yawServoPos,
+        YAW_MIN,
+        YAW_MAX
+      );
+
+    pitchServoPos =
+      constrain(
+        pitchServoPos,
+        PITCH_MIN,
+        PITCH_MAX
+      );
+
+    // Deadzone
+    if (abs(yawServoPos - targetYaw) >= 2)
+      targetYaw = yawServoPos;
+
+    if (abs(pitchServoPos - targetPitch) >= 2)
+      targetPitch = pitchServoPos;
+
+    // Debug
+    Serial.print("RawYaw: ");
+    Serial.print(rawYaw);
+
+    Serial.print(" ContinuousYaw: ");
+    Serial.print(continuousYaw);
+
+    Serial.print(" ServoYaw: ");
+    Serial.println(yawServoPos);
   }
 }
 
 void setup() {
+
   Serial.begin(115200);
 
   WiFi.mode(WIFI_STA);
 
+  esp_wifi_set_channel(
+    1,
+    WIFI_SECOND_CHAN_NONE
+  );
+
   if (esp_now_init() != ESP_OK) {
+
     Serial.println("Error ESP-NOW");
     return;
   }
 
-  esp_now_register_recv_cb(onReceive);
+  esp_now_register_recv_cb(
+    onReceive
+  );
 
-  // Pines
-  servoYaw.attach(18);   // izquierda/derecha
-  servoPitch.attach(5);  // arriba/abajo
+  ESP32PWM::allocateTimer(0);
 
-  Serial.println("Listo para recibir datos");
+  servoYaw.setPeriodHertz(50);
+  servoPitch.setPeriodHertz(50);
+
+  servoYaw.attach(25, 500, 2500);
+  servoPitch.attach(33, 500, 2500);
+
+  servoYaw.write(90);
+  servoPitch.write(90);
+
+  delay(1500);
+
+  Serial.println("================================");
+  Serial.println("       VISOR RX READY");
+  Serial.println("================================");
 }
 
-void loop() {}
+void loop() {
+
+  // Suavizado
+  currentYaw += (targetYaw - currentYaw) * 0.35;
+  currentPitch += (targetPitch - currentPitch) * 0.35;
+
+  currentYaw =
+    constrain(
+      currentYaw,
+      YAW_MIN,
+      YAW_MAX
+    );
+
+  currentPitch =
+    constrain(
+      currentPitch,
+      PITCH_MIN,
+      PITCH_MAX
+    );
+
+  // Mover servos
+  servoYaw.write((int)currentYaw);
+  servoPitch.write((int)currentPitch);
+
+  delay(10);
+}
