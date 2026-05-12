@@ -13,7 +13,7 @@ const int LPWM_L = 26;
 const int R_EN_L = 27;
 const int L_EN_L = 14;
 
-// ----------- IBT-2 #2 LEFT -----------
+// ----------- IBT-2 #2 RIGHT -----------
 const int RPWM_R = 33;
 const int LPWM_R = 32;
 const int R_EN_R = 13;
