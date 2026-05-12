@@ -40,3 +40,8 @@ The material list used is listed below or can be viewed <a href="https://drive.g
 | ESP32 DEVKIT 30 Pines   |   2   |
 | Servomotor MG995        |   2   |
 | H Bridge BTS7960        |   2   |
+
+# Circuit Connections
+The complete circuit diagram is shown below:
+
+<img width="1427" height="1078" alt="Complete Circuit Diagram" src="https://github.com/user-attachments/assets/cbc20552-ec5f-4120-b540-9998168ef522" />
