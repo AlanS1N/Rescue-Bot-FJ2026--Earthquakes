@@ -7,28 +7,25 @@
 //     MAKE SURE TO BIND CORRECTLY THE CONTROLLER
 // ============================================================
 
-// ----------- IBT-2 #1 -----------
-const int RPWM = 25;
-const int LPWM = 26;
-const int R_EN = 27;
-const int L_EN = 14;
+// ----------- IBT-2 LEFT -----------
+const int RPWM_L = 25;
+const int LPWM_L = 26;
+const int R_EN_L = 27;
+const int L_EN_L = 14;
 
-// ----------- IBT-2 #2 -----------
-const int RPWM2 = 33;
-const int LPWM2 = 32;
-const int R_EN2 = 13;
-const int L_EN2 = 12;
-
-// ----------- IBT-2 #3 -----------
-const int RPWM3 = 4;
-const int LPWM3 = 18;
-const int R_EN3 = 19;
-const int L_EN3 = 21;
+// ----------- IBT-2 RIGHT -----------
+const int RPWM_R = 33;
+const int LPWM_R = 32;
+const int R_EN_R = 13;
+const int L_EN_R = 12;
 
 // ----------- iBUS -----------
-uint16_t canalFiltrado = 1500;
+uint16_t chThrottle = 1500; // eje vertical
+uint16_t chSteering = 1500; // eje horizontal
+
 unsigned long ultimaLectura = 0;
 
+// ----------- Read iBUS -----------
 void leerIBus() {
   while (Serial2.available()) {
     static uint8_t buffer[32];
@@ -42,105 +39,105 @@ void leerIBus() {
     buffer[indice++] = byteRecibido;
 
     if (indice == 32) {
-      uint16_t tempCH2 = buffer[2 + 1 * 2] | (buffer[3 + 1 * 2] << 8);
+      uint16_t tempCH1 = buffer[2 + 0 * 2] | (buffer[3 + 0 * 2] << 8); // X
+      uint16_t tempCH2 = buffer[2 + 1 * 2] | (buffer[3 + 1 * 2] << 8); // Y
 
       if (tempCH2 >= 800 && tempCH2 <= 2200) {
-        canalFiltrado = (canalFiltrado * 0.7) + (tempCH2 * 0.3);
-        ultimaLectura = millis();
+        chThrottle = (chThrottle * 0.7) + (tempCH2 * 0.3);
       }
+
+      if (tempCH1 >= 800 && tempCH1 <= 2200) {
+        chSteering = (chSteering * 0.7) + (tempCH1 * 0.3);
+      }
+
+      ultimaLectura = millis();
       indice = 0;
     }
   }
 }
 
+// ----------- Setup -----------
 void setup() {
   Serial.begin(115200);
 
-  Serial2.begin(115200, SERIAL_8N1, 16, -1);              // iBus RX Connected to PIN16 !!!
+  Serial2.begin(115200, SERIAL_8N1, 16, -1);
   Serial2.setTimeout(0);
 
-  // ENABLE ALL
-  pinMode(R_EN, OUTPUT);
-  pinMode(L_EN, OUTPUT);
-  digitalWrite(R_EN, HIGH);
-  digitalWrite(L_EN, HIGH);
+  // ENABLE
+  pinMode(R_EN_L, OUTPUT);
+  pinMode(L_EN_L, OUTPUT);
+  digitalWrite(R_EN_L, HIGH);
+  digitalWrite(L_EN_L, HIGH);
 
-  pinMode(R_EN2, OUTPUT);
-  pinMode(L_EN2, OUTPUT);
-  digitalWrite(R_EN2, HIGH);
-  digitalWrite(L_EN2, HIGH);
+  pinMode(R_EN_R, OUTPUT);
+  pinMode(L_EN_R, OUTPUT);
+  digitalWrite(R_EN_R, HIGH);
+  digitalWrite(L_EN_R, HIGH);
 
-  pinMode(R_EN3, OUTPUT);
-  pinMode(L_EN3, OUTPUT);
-  digitalWrite(R_EN3, HIGH);
-  digitalWrite(L_EN3, HIGH);
+  // PWM ESP32
+  ledcAttach(RPWM_L, 20000, 8);
+  ledcAttach(LPWM_L, 20000, 8);
 
-  // PWM (core 3.x)
-  ledcAttach(RPWM, 20000, 8);
-  ledcAttach(LPWM, 20000, 8);
+  ledcAttach(RPWM_R, 20000, 8);
+  ledcAttach(LPWM_R, 20000, 8);
 
-  ledcAttach(RPWM2, 20000, 8);
-  ledcAttach(LPWM2, 20000, 8);
-
-  ledcAttach(RPWM3, 20000, 8);
-  ledcAttach(LPWM3, 20000, 8);
-
-  Serial.println("Triple IBT-2 listo");
+  Serial.println("Rover listo (mezcla 1 joystick)");
 }
 
+// ----------- Loop -----------
 void loop() {
   leerIBus();
 
-  if (millis() - ultimaLectura > 250) {
+  // failsafe
+  if (millis() - ultimaLectura > 300) {
     frenar();
+    return;
+  }
+
+  int throttle = map(chThrottle, 1000, 2000, -255, 255);
+  int steering = map(chSteering, 1000, 2000, -255, 255);
+
+  // zonas muertas
+  if (abs(throttle) < 40) throttle = 0;
+  if (abs(steering) < 40) steering = 0;
+
+  // mezcla diferencial
+  int velIzq = throttle + steering;
+  int velDer = throttle - steering;
+
+  velIzq = constrain(velIzq, -255, 255);
+  velDer = constrain(velDer, -255, 255);
+
+  moverRobot(velIzq, velDer);
+}
+
+// ----------- Movement -----------
+void moverRobot(int izq, int der) {
+
+  // LEFT
+  if (izq > 0) {
+    ledcWrite(RPWM_L, izq);
+    ledcWrite(LPWM_L, 0);
   } else {
-    int velocidad = map(canalFiltrado, 1000, 2000, -255, 255);
+    ledcWrite(RPWM_L, 0);
+    ledcWrite(LPWM_L, abs(izq));
+  }
 
-    if (abs(velocidad) < 48) velocidad = 0;
-
-    moverRobot(velocidad);
+  // RIGHT
+  if (der > 0) {
+    ledcWrite(RPWM_R, der);
+    ledcWrite(LPWM_R, 0);
+  } else {
+    ledcWrite(RPWM_R, 0);
+    ledcWrite(LPWM_R, abs(der));
   }
 }
 
-void moverRobot(int v) {
-  if (v > 0) {
-    // #1
-    ledcWrite(LPWM, 0);
-    ledcWrite(RPWM, v);
-
-    // #2
-    ledcWrite(LPWM2, 0);
-    ledcWrite(RPWM2, v);
-
-    // #3
-    ledcWrite(LPWM3, 0);
-    ledcWrite(RPWM3, v);
-  } 
-  else if (v < 0) {
-    // #1
-    ledcWrite(RPWM, 0);
-    ledcWrite(LPWM, abs(v));
-
-    // #2
-    ledcWrite(RPWM2, 0);
-    ledcWrite(LPWM2, abs(v));
-
-    // #3
-    ledcWrite(RPWM3, 0);
-    ledcWrite(LPWM3, abs(v));
-  } 
-  else {
-    frenar();
-  }
-}
-
+// ----------- BREAKS -----------
 void frenar() {
-  ledcWrite(RPWM, 0);
-  ledcWrite(LPWM, 0);
+  ledcWrite(RPWM_L, 0);
+  ledcWrite(LPWM_L, 0);
 
-  ledcWrite(RPWM2, 0);
-  ledcWrite(LPWM2, 0);
-
-  ledcWrite(RPWM3, 0);
-  ledcWrite(LPWM3, 0);
+  ledcWrite(RPWM_R, 0);
+  ledcWrite(LPWM_R, 0);
 }
