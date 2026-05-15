@@ -1,0 +1,203 @@
+// ============================================================
+// ROCKER BOGIE ROVER
+// ESP32 + 2x IBT2 + FlySky iBUS & Controller
+// ============================================================
+
+// ----------- IBT-2 RIGHT -----------
+const int RPWM_R = 25;
+const int LPWM_R = 26;
+const int R_EN_R = 27;
+const int L_EN_R = 14;
+
+// ----------- IBT-2 LEFT -----------
+const int RPWM_L = 33;
+const int LPWM_L = 32;
+const int R_EN_L = 13;
+const int L_EN_L = 12;
+
+// ----------- iBUS -----------
+uint16_t chThrottle = 1500;
+uint16_t chSteering = 1500;
+
+unsigned long ultimaLectura = 0;
+
+// ============================================================
+// READ IBUS
+// ============================================================
+
+void leerIBus() {
+
+  while (Serial2.available()) {
+
+    static uint8_t buffer[32];
+    static uint8_t indice = 0;
+
+    uint8_t b = Serial2.read();
+
+    if (indice == 0 && b != 0x20) continue;
+
+    if (indice == 1 && b != 0x40) {
+      indice = 0;
+      continue;
+    }
+
+    buffer[indice++] = b;
+
+    if (indice == 32) {
+
+      uint16_t tempCH1 =
+        buffer[2] |
+        (buffer[3] << 8);
+
+      uint16_t tempCH2 =
+        buffer[4] |
+        (buffer[5] << 8);
+
+      if (tempCH1 >= 800 && tempCH1 <= 2200) {
+        chSteering =
+          (chSteering * 0.7) +
+          (tempCH1 * 0.3);
+      }
+
+      if (tempCH2 >= 800 && tempCH2 <= 2200) {
+        chThrottle =
+          (chThrottle * 0.7) +
+          (tempCH2 * 0.3);
+      }
+
+      ultimaLectura = millis();
+      indice = 0;
+    }
+  }
+}
+
+// ============================================================
+// SETUP
+// ============================================================
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Serial2.begin(115200, SERIAL_8N1, 16, -1);
+
+  // RIGHT
+  pinMode(R_EN_R, OUTPUT);
+  pinMode(L_EN_R, OUTPUT);
+
+  digitalWrite(R_EN_R, HIGH);
+  digitalWrite(L_EN_R, HIGH);
+
+  // LEFT
+  pinMode(R_EN_L, OUTPUT);
+  pinMode(L_EN_L, OUTPUT);
+
+  digitalWrite(R_EN_L, HIGH);
+  digitalWrite(L_EN_L, HIGH);
+
+  // PWM
+  ledcAttach(RPWM_R, 20000, 8);
+  ledcAttach(LPWM_R, 20000, 8);
+
+  ledcAttach(RPWM_L, 20000, 8);
+  ledcAttach(LPWM_L, 20000, 8);
+
+  Serial.println("ROVER READY");
+}
+
+// ============================================================
+// LOOP
+// ============================================================
+
+void loop() {
+
+  leerIBus();
+
+  // FAILSAFE
+  if (millis() - ultimaLectura > 300) {
+    frenar();
+    return;
+  }
+
+  // MAPEO
+  int throttle =
+    map(chThrottle, 1000, 2000, -255, 255);
+
+  int steering =
+    map(chSteering, 1000, 2000, -255, 255);
+
+  // DEADZONE
+  if (abs(throttle) < 30) throttle = 0;
+  if (abs(steering) < 30) steering = 0;
+
+  // ==========================================================
+  // TANK MIX
+  // ==========================================================
+
+  int velIzq = throttle + steering;
+  int velDer = throttle - steering;
+
+  velIzq = constrain(velIzq, -255, 255);
+  velDer = constrain(velDer, -255, 255);
+
+  moverMotores(velIzq, velDer);
+
+  // DEBUG
+  Serial.print("THR: ");
+  Serial.print(throttle);
+
+  Serial.print(" STR: ");
+  Serial.print(steering);
+
+  Serial.print(" L: ");
+  Serial.print(velIzq);
+
+  Serial.print(" R: ");
+  Serial.println(velDer);
+
+  delay(10);
+}
+
+// ============================================================
+// MOTOR CONTROL
+// ============================================================
+
+void moverMotores(int izq, int der) {
+
+  // ================= LEFT =================
+  if (izq > 0) {
+
+    ledcWrite(RPWM_L, izq);
+    ledcWrite(LPWM_L, 0);
+
+  } else {
+
+    ledcWrite(RPWM_L, 0);
+    ledcWrite(LPWM_L, abs(izq));
+  }
+
+  // ================= RIGHT =================
+  if (der > 0) {
+
+    ledcWrite(RPWM_R, der);
+    ledcWrite(LPWM_R, 0);
+
+  } else {
+
+    ledcWrite(RPWM_R, 0);
+    ledcWrite(LPWM_R, abs(der));
+  }
+}
+
+// ============================================================
+// BRAKE
+// ============================================================
+
+void frenar() {
+
+  ledcWrite(RPWM_L, 0);
+  ledcWrite(LPWM_L, 0);
+
+  ledcWrite(RPWM_R, 0);
+  ledcWrite(LPWM_R, 0);
+}
