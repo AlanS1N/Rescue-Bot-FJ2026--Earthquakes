@@ -18,6 +18,7 @@ This project focuses on the analysis of structural damages and failures caused b
 The system **will be** validated in a simulated disaster scenario to evaluate technical performance, exploration efficiency, and its utility in supporting rescue missions and structural diagnostics.
 
 📜 (WIP) The paper developed alongside the documentation in Github can be viewwed <a href="https://www.overleaf.com/read/qfjzchcjjjqq#3e95bf">by clicking here.</a>
+
 🎬 A showcase of the development of the robot can be seen by clicking here.
 
 **Key Features:**
@@ -46,7 +47,6 @@ The system **will be** validated in a simulated disaster scenario to evaluate te
     </td>
   </tr>
 </table>
----
 
 # Materials
 
@@ -62,6 +62,7 @@ The material list used is listed below:
 | FPV Set TS5823Pro       |   1   |
 | Logitech C920 Webcam    |   1   |
 | EMAX Transporter 2      |   1   |
+| 1K Ohms Resistor        |   2   |
 
 # Circuit Connections
 The complete circuit diagram is shown below:
