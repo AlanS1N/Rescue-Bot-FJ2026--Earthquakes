@@ -57,7 +57,7 @@ The system **will be** validated in a simulated disaster scenario to evaluate te
   </tr>
 </table>
 
-👉 [Click here to see development logs and check out the current progress](./progress.md)
+👉 [Click here to see development logs and check out the current progress](./.docs/progress.md)
 
 # Circuit Connections
 The complete circuit diagram is shown below:
