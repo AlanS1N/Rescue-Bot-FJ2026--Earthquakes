@@ -19,7 +19,7 @@ The system **will be** validated in a simulated disaster scenario to evaluate te
 
 📜 (WIP) The paper developed alongside the documentation in Github can be viewwed <a href="https://www.overleaf.com/read/qfjzchcjjjqq#3e95bf">by clicking here.</a>
 
-🎬 A showcase of the development of the robot can be seen by clicking here.
+🎬 We will soon share a video of the advancements!!
 
 **Key Features:**
   1. Teleoperated movement.
