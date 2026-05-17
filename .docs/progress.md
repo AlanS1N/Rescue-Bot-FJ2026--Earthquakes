@@ -1,5 +1,5 @@
 # 📚 **Development Progress**
-👉 [Back to Main Description]((https://github.com/AlanS1N/Rescue-Bot-FJ2026--Earthquakes/tree/main))
+👉 [Back to Main Description](https://github.com/AlanS1N/Rescue-Bot-FJ2026--Earthquakes)
 
 
 ### Table of Contents
