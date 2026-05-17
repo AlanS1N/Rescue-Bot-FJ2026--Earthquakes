@@ -78,3 +78,4 @@
 <img width="960" height="540" alt="chalala" src="https://github.com/user-attachments/assets/14b4c58f-937f-47ec-837b-f1b7ed04fcdf" />
 
 ---
+👉 [Back to Main Description](https://github.com/AlanS1N/Rescue-Bot-FJ2026--Earthquakes)
