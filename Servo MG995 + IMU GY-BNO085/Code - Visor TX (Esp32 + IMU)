@@ -1,84 +1,337 @@
-/////////////////////// VISOR TX (IMU) ///////////////////////
-#include <esp_now.h>
+/////////////////////////////////////////////////////////
+//         ESP-NOW TX + BNO08X HEAD TRACKING           //
+/////////////////////////////////////////////////////////
+
 #include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+
 #include <Wire.h>
 #include <Adafruit_BNO08x.h>
 
-Adafruit_BNO08x bno08x;
+/////////////////////////////////////////////////////////
+// SETTINGS
+/////////////////////////////////////////////////////////
 
-// MAC ESP32 !!
-uint8_t receiverAddress[] = {0xE8, 0x6B, 0xEA, 0xCA, 0x37, 0xF4};
+#define ESPNOW_CHANNEL 1
+
+/////////////////////////////////////////////////////////
+// RX MAC ADDRESS
+/////////////////////////////////////////////////////////
+
+uint8_t receiverAddress[] = {
+  0xB0, 0xCB, 0xD8, 0xCD, 0x1E, 0xA0
+};
+
+/////////////////////////////////////////////////////////
+// DATA STRUCTURE
+/////////////////////////////////////////////////////////
 
 typedef struct {
-  float yaw;
-} Data;
 
-Data data;
+  float yaw;
+  float pitch;
+
+} DataPacket;
+
+DataPacket data;
+
+/////////////////////////////////////////////////////////
+// IMU
+/////////////////////////////////////////////////////////
+
+Adafruit_BNO08x bno08x;
 
 sh2_SensorValue_t sensorValue;
 
-float offset = 0;
+/////////////////////////////////////////////////////////
+// OFFSETS
+/////////////////////////////////////////////////////////
+
+float yawOffset = 0;
+float pitchOffset = 0;
+
 bool calibrated = false;
 
+/////////////////////////////////////////////////////////
+// CALLBACK
+/////////////////////////////////////////////////////////
+
+void onDataSent(
+  const wifi_tx_info_t *info,
+  esp_now_send_status_t status
+) {
+
+  if (status == ESP_NOW_SEND_SUCCESS) {
+
+    Serial.println("Delivery Success");
+  }
+  else {
+
+    Serial.println("Delivery Failed");
+  }
+}
+
+/////////////////////////////////////////////////////////
+// SETUP
+/////////////////////////////////////////////////////////
+
 void setup() {
+
   Serial.begin(115200);
 
-  WiFi.mode(WIFI_STA);
-  Wire.begin(21, 22);
-  Wire.setClock(100000);
+  delay(2000);
 
-  Serial.println("Inicializando IMU...");
+  Serial.println();
+  Serial.println("=================================");
+  Serial.println("     BNO08X HEAD TRACKING TX");
+  Serial.println("=================================");
+
+  /////////////////////////////////////////////////////////
+  // I2C
+  /////////////////////////////////////////////////////////
+
+  Wire.begin(21, 22);
+
+  Wire.setClock(50000);
+
+  /////////////////////////////////////////////////////////
+  // BNO08X
+  /////////////////////////////////////////////////////////
+
+  Serial.println("Initializing BNO08X...");
 
   if (!bno08x.begin_I2C(0x4B)) {
-    Serial.println("Intentando 0x4A...");
+
+    Serial.println("Trying 0x4A...");
+
     if (!bno08x.begin_I2C(0x4A)) {
-      Serial.println("No se encontró BNO08X");
+
+      Serial.println("BNO08X NOT FOUND");
+
       while (1);
     }
   }
 
-  Serial.println("IMU lista!");
+  Serial.println("BNO08X READY");
 
-  bno08x.enableReport(SH2_ROTATION_VECTOR);
+  /////////////////////////////////////////////////////////
+  // GAME ROTATION VECTOR
+  /////////////////////////////////////////////////////////
+
+  bno08x.enableReport(
+    SH2_GAME_ROTATION_VECTOR
+  );
+
+  /////////////////////////////////////////////////////////
+  // WIFI
+  /////////////////////////////////////////////////////////
+
+  WiFi.disconnect(true);
+
+  delay(1000);
+
+  WiFi.mode(WIFI_STA);
+
+  delay(1000);
+
+  esp_wifi_set_promiscuous(true);
+
+  esp_wifi_set_channel(
+    ESPNOW_CHANNEL,
+    WIFI_SECOND_CHAN_NONE
+  );
+
+  esp_wifi_set_promiscuous(false);
+
+  /////////////////////////////////////////////////////////
+  // PRINT MAC
+  /////////////////////////////////////////////////////////
+
+  Serial.print("TX MAC: ");
+
+  Serial.println(WiFi.macAddress());
+
+  /////////////////////////////////////////////////////////
+  // ESP-NOW
+  /////////////////////////////////////////////////////////
 
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error ESP-NOW");
+
+    Serial.println("ESP-NOW INIT FAILED");
+
     return;
   }
 
+  esp_now_register_send_cb(onDataSent);
+
+  /////////////////////////////////////////////////////////
+  // PEER
+  /////////////////////////////////////////////////////////
+
   esp_now_peer_info_t peerInfo = {};
-  memcpy(peerInfo.peer_addr, receiverAddress, 6);
-  esp_now_add_peer(&peerInfo);
+
+  memcpy(
+    peerInfo.peer_addr,
+    receiverAddress,
+    6
+  );
+
+  peerInfo.channel = ESPNOW_CHANNEL;
+
+  peerInfo.encrypt = false;
+
+  peerInfo.ifidx = WIFI_IF_STA;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+
+    Serial.println("FAILED TO ADD PEER");
+
+    return;
+  }
+
+  Serial.println("TX READY");
+
+  Serial.println("=================================");
 }
 
+/////////////////////////////////////////////////////////
+// LOOP
+/////////////////////////////////////////////////////////
+
 void loop() {
+
   if (bno08x.getSensorEvent(&sensorValue)) {
 
-    if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
+    if (sensorValue.sensorId ==
+        SH2_GAME_ROTATION_VECTOR) {
 
-      float qx = sensorValue.un.rotationVector.i;
-      float qy = sensorValue.un.rotationVector.j;
-      float qz = sensorValue.un.rotationVector.k;
-      float qw = sensorValue.un.rotationVector.real;
+      /////////////////////////////////////////////////////
+      // QUATERNIONS
+      /////////////////////////////////////////////////////
 
-      // YAW (Left/Right)
-      float yaw = atan2(2.0 * (qw*qz + qx*qy),
-                        1 - 2.0 * (qy*qy + qz*qz)) * 180.0 / PI;
+      float qx =
+        sensorValue.un.rotationVector.i;
 
-      // Automatic Initial Calibration
+      float qy =
+        sensorValue.un.rotationVector.j;
+
+      float qz =
+        sensorValue.un.rotationVector.k;
+
+      float qw =
+        sensorValue.un.rotationVector.real;
+
+      /////////////////////////////////////////////////////
+      // YAW
+      /////////////////////////////////////////////////////
+
+      float yaw = atan2(
+        2.0 * (qw*qz + qx*qy),
+        1.0 - 2.0 *
+        (qy*qy + qz*qz)
+      ) * 180.0 / PI;
+
+      /////////////////////////////////////////////////////
+      // PITCH
+      /////////////////////////////////////////////////////
+
+      float pitch = asin(
+        2.0 * (qw*qy - qz*qx)
+      ) * 180.0 / PI;
+
+      /////////////////////////////////////////////////////
+      // INITIAL CALIBRATION
+      /////////////////////////////////////////////////////
+
       if (!calibrated) {
-        offset = yaw;
+
+        yawOffset = yaw;
+
+        pitchOffset = pitch;
+
         calibrated = true;
+
+        Serial.println("CENTER POSITION SAVED");
       }
 
-      data.yaw = yaw - offset;
+      /////////////////////////////////////////////////////
+      // RELATIVE MOVEMENT
+      /////////////////////////////////////////////////////
 
-      esp_now_send(receiverAddress, (uint8_t *)&data, sizeof(data));
+      float relativeYaw =
+        yaw - yawOffset;
+
+      float relativePitch =
+        pitch - pitchOffset;
+
+      /////////////////////////////////////////////////////
+      // FIX WRAPAROUND
+      /////////////////////////////////////////////////////
+
+      if (relativeYaw > 180)
+        relativeYaw -= 360;
+
+      if (relativeYaw < -180)
+        relativeYaw += 360;
+
+      /////////////////////////////////////////////////////
+      // DEADZONE
+      /////////////////////////////////////////////////////
+
+      if (abs(relativeYaw) < 1.0)
+        relativeYaw = 0;
+
+      if (abs(relativePitch) < 1.0)
+        relativePitch = 0;
+
+      /////////////////////////////////////////////////////
+      // LIMIT HUMAN HEAD RANGE
+      /////////////////////////////////////////////////////
+
+      relativeYaw = constrain(
+        relativeYaw,
+        -90,
+        90
+      );
+
+      relativePitch = constrain(
+        relativePitch,
+        -22,
+        45
+      );
+
+      /////////////////////////////////////////////////////
+      // ASSIGN DATA
+      /////////////////////////////////////////////////////
+
+      data.yaw = relativeYaw;
+
+      data.pitch = relativePitch;
+
+      /////////////////////////////////////////////////////
+      // SEND
+      /////////////////////////////////////////////////////
+
+      esp_now_send(
+        receiverAddress,
+        (uint8_t *)&data,
+        sizeof(data)
+      );
+
+      /////////////////////////////////////////////////////
+      // DEBUG
+      /////////////////////////////////////////////////////
 
       Serial.print("Yaw: ");
-      Serial.println(data.yaw);
+
+      Serial.print(data.yaw);
+
+      Serial.print(" | Pitch: ");
+
+      Serial.println(data.pitch);
     }
   }
 
-  delay(20); // 50 Hz
+  delay(20);
 }
