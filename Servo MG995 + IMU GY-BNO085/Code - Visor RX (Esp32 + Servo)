@@ -1,238 +1,262 @@
-/////////////////////// VISOR RX ///////////////////////
+/////////////////////////////////////////////////////////
+//         ESP-NOW RX + HEAD TRACKING SERVOS           //
+/////////////////////////////////////////////////////////
 
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+
 #include <ESP32Servo.h>
+#include <ESP32PWM.h>
+
+/////////////////////////////////////////////////////////
+// SETTINGS
+/////////////////////////////////////////////////////////
+
+#define ESPNOW_CHANNEL 1
+
+/////////////////////////////////////////////////////////
+// DATA STRUCTURE
+/////////////////////////////////////////////////////////
+
+typedef struct {
+
+  float yaw;
+  float pitch;
+
+} DataPacket;
+
+/////////////////////////////////////////////////////////
+// GLOBALS
+/////////////////////////////////////////////////////////
+
+DataPacket latestData;
+
+volatile bool newData = false;
+
+/////////////////////////////////////////////////////////
+// SERVOS
+/////////////////////////////////////////////////////////
 
 Servo servoYaw;
 Servo servoPitch;
 
-typedef struct {
-  float yaw;
-  float pitch;
-} DataPacket;
+/////////////////////////////////////////////////////////
+// CURRENT POSITIONS
+/////////////////////////////////////////////////////////
 
-DataPacket incoming;
-
-// =========================
-// YAW VARIABLES
-// =========================
-
-float continuousYaw = 0;
-float lastRawYaw = 0;
-bool firstYaw = true;
-
-// Objetivos servos
-volatile int targetYaw = 90;
-volatile int targetPitch = 90;
-
-// Posiciones actuales suavizadas
 float currentYaw = 90;
 float currentPitch = 90;
 
-// =========================
-// SERVOS RANGE
-// =========================
+/////////////////////////////////////////////////////////
+// SERVO LIMITS
+/////////////////////////////////////////////////////////
 
-const int YAW_MIN = 20;
-const int YAW_MAX = 160;
+const int YAW_MIN = 5;
+const int YAW_MAX = 175;
 
 const int PITCH_MIN = 30;
 const int PITCH_MAX = 150;
 
-// Callback recepción ESP-NOW
+/////////////////////////////////////////////////////////
+// RECEIVE CALLBACK
+/////////////////////////////////////////////////////////
+
 void onReceive(
   const esp_now_recv_info *info,
   const uint8_t *data,
   int len
 ) {
 
-  static unsigned long lastUpdate = 0;
-
-  if (millis() - lastUpdate < 10)
+  if (len != sizeof(latestData)) {
     return;
-
-  lastUpdate = millis();
-
-  if (len == sizeof(incoming)) {
-
-    memcpy(
-      &incoming,
-      data,
-      sizeof(incoming)
-    );
-
-    // =========================
-    // YAW
-    // =========================
-
-    float rawYaw = incoming.yaw;
-
-    // =========================
-    // UNWRAP YAW
-    // Try to avoid ±180/360
-    // =========================
-
-    if (firstYaw) {
-
-      continuousYaw = rawYaw;
-      lastRawYaw = rawYaw;
-      firstYaw = false;
-    }
-
-    float deltaYaw = rawYaw - lastRawYaw;
-
-    // Cruce positivo
-    if (deltaYaw > 180)
-      deltaYaw -= 360;
-
-    // Cruce negativo
-    if (deltaYaw < -180)
-      deltaYaw += 360;
-
-    continuousYaw += deltaYaw;
-
-    lastRawYaw = rawYaw;
-
-    // =========================
-    // YAW LIMIT
-    // =========================
-
-    float yaw =
-      constrain(
-        continuousYaw,
-        -90,
-        90
-      );
-
-    // =========================
-    // PITCH
-    // =========================
-
-    float pitch =
-      constrain(
-        incoming.pitch + 45,
-        -90,
-        90
-      );
-
-    // =========================
-    // MAPPING
-    // =========================
-
-    int yawServoPos = map(
-      (int)yaw,
-      -90,
-      90,
-      YAW_MIN,
-      YAW_MAX
-    );
-
-    int pitchServoPos = map(
-      (int)pitch,
-      -90,
-      90,
-      PITCH_MIN,
-      PITCH_MAX
-    );
-
-    // Protection
-    yawServoPos =
-      constrain(
-        yawServoPos,
-        YAW_MIN,
-        YAW_MAX
-      );
-
-    pitchServoPos =
-      constrain(
-        pitchServoPos,
-        PITCH_MIN,
-        PITCH_MAX
-      );
-
-    // Deadzone
-    if (abs(yawServoPos - targetYaw) >= 2)
-      targetYaw = yawServoPos;
-
-    if (abs(pitchServoPos - targetPitch) >= 2)
-      targetPitch = pitchServoPos;
-
-    // Debug
-    Serial.print("RawYaw: ");
-    Serial.print(rawYaw);
-
-    Serial.print(" ContinuousYaw: ");
-    Serial.print(continuousYaw);
-
-    Serial.print(" ServoYaw: ");
-    Serial.println(yawServoPos);
   }
+
+  memcpy(
+    &latestData,
+    data,
+    sizeof(latestData)
+  );
+
+  newData = true;
 }
+
+/////////////////////////////////////////////////////////
+// SETUP
+/////////////////////////////////////////////////////////
 
 void setup() {
 
   Serial.begin(115200);
 
+  delay(2000);
+
+  Serial.println();
+  Serial.println("=================================");
+  Serial.println("      HEAD TRACKING RX");
+  Serial.println("=================================");
+
+  /////////////////////////////////////////////////////////
+  // WIFI
+  /////////////////////////////////////////////////////////
+
+  WiFi.disconnect(true);
+
   WiFi.mode(WIFI_STA);
 
+  delay(500);
+
   esp_wifi_set_channel(
-    1,
+    ESPNOW_CHANNEL,
     WIFI_SECOND_CHAN_NONE
   );
 
+  /////////////////////////////////////////////////////////
+  // PRINT MAC
+  /////////////////////////////////////////////////////////
+
+  Serial.print("RX MAC: ");
+
+  Serial.println(WiFi.macAddress());
+
+  /////////////////////////////////////////////////////////
+  // ESP-NOW
+  /////////////////////////////////////////////////////////
+
   if (esp_now_init() != ESP_OK) {
 
-    Serial.println("Error ESP-NOW");
+    Serial.println("ESP-NOW INIT FAILED");
+
     return;
   }
 
-  esp_now_register_recv_cb(
-    onReceive
-  );
+  esp_now_register_recv_cb(onReceive);
+
+  /////////////////////////////////////////////////////////
+  // SERVOS
+  /////////////////////////////////////////////////////////
 
   ESP32PWM::allocateTimer(0);
 
   servoYaw.setPeriodHertz(50);
+
   servoPitch.setPeriodHertz(50);
 
-  servoYaw.attach(25, 500, 2500);
-  servoPitch.attach(33, 500, 2500);
+  servoYaw.attach(21, 500, 2500);
+
+  servoPitch.attach(19, 500, 2500);
+
+  /////////////////////////////////////////////////////////
+  // CENTER SERVOS
+  /////////////////////////////////////////////////////////
 
   servoYaw.write(90);
+
   servoPitch.write(90);
 
-  delay(1500);
+  delay(1000);
 
-  Serial.println("================================");
-  Serial.println("       VISOR RX READY");
-  Serial.println("================================");
+  Serial.println("RX READY");
+
+  Serial.println("=================================");
 }
+
+/////////////////////////////////////////////////////////
+// LOOP
+/////////////////////////////////////////////////////////
 
 void loop() {
 
-  // Suavizado
-  currentYaw += (targetYaw - currentYaw) * 0.35;
-  currentPitch += (targetPitch - currentPitch) * 0.35;
+  if (newData) {
 
-  currentYaw =
-    constrain(
-      currentYaw,
+    newData = false;
+
+    /////////////////////////////////////////////////////////
+    // READ DATA
+    /////////////////////////////////////////////////////////
+
+    float yaw = latestData.yaw;
+
+    float pitch = latestData.pitch;
+
+    /////////////////////////////////////////////////////////
+    // MAP YAW
+    /////////////////////////////////////////////////////////
+
+    float yawServoPos = map(
+      yaw,
+      -90,
+      90,
       YAW_MIN,
       YAW_MAX
     );
 
-  currentPitch =
-    constrain(
-      currentPitch,
+    /////////////////////////////////////////////////////////
+    // INVERTED PITCH
+    /////////////////////////////////////////////////////////
+
+    float pitchServoPos = map(
+      -pitch,
+      -22,
+      45,
       PITCH_MIN,
       PITCH_MAX
     );
 
-  // Mover servos
-  servoYaw.write((int)currentYaw);
-  servoPitch.write((int)currentPitch);
+    /////////////////////////////////////////////////////////
+    // LIMITS
+    /////////////////////////////////////////////////////////
 
-  delay(10);
+    yawServoPos = constrain(
+      yawServoPos,
+      YAW_MIN,
+      YAW_MAX
+    );
+
+    pitchServoPos = constrain(
+      pitchServoPos,
+      PITCH_MIN,
+      PITCH_MAX
+    );
+
+    /////////////////////////////////////////////////////////
+    // SMOOTHING
+    /////////////////////////////////////////////////////////
+
+    currentYaw +=
+      (yawServoPos - currentYaw) * 0.12;
+
+    currentPitch +=
+      (pitchServoPos - currentPitch) * 0.12;
+
+    /////////////////////////////////////////////////////////
+    // MOVE SERVOS
+    /////////////////////////////////////////////////////////
+
+    servoYaw.write((int)currentYaw);
+
+    servoPitch.write((int)currentPitch);
+
+    /////////////////////////////////////////////////////////
+    // DEBUG
+    /////////////////////////////////////////////////////////
+
+    Serial.print("Yaw: ");
+
+    Serial.print(yaw);
+
+    Serial.print(" | Pitch: ");
+
+    Serial.print(pitch);
+
+    Serial.print(" | ServoYaw: ");
+
+    Serial.print(currentYaw);
+
+    Serial.print(" | ServoPitch: ");
+
+    Serial.println(currentPitch);
+  }
+
+  delay(5);
 }
