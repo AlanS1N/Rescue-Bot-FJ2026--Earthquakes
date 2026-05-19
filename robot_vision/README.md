@@ -1,10 +1,10 @@
-# Rescue Vision para la Jetson
+# Rescue Vision for Jetson
 
-Guia rapida para llevar el clasificador al repo del robot.
+Quick guide to deploy the classifier to the robot's repository.
 
-## Que mover al repo del robot
+## What to move to the robot's repository
 
-Mueve esta carpeta completa:
+Move this entire folder:
 
 ```text
 robot_vision/
@@ -16,47 +16,47 @@ robot_vision/
     `-- bestfinal.pt
 ```
 
-Eso es lo importante para correr en la Jetson Orin. No hace falta mover `dataset.zip`, `.venv`, `runs/`, `Random` ni las carpetas de imagenes. Esas sirven para entrenar o preparar datos, pero no para que el robot haga inferencia.
+This is what's needed to run on the Jetson Orin. There's no need to move `dataset.zip`, `.venv`, `runs/`, `Random`, or the image folders. These are used for training or data preparation, but not for inference on the robot.
 
-## Que hace
+## What it does
 
-El modelo es un clasificador YOLO de Ultralytics. Recibe una imagen/frame completo y responde una de estas clases:
+The model is a YOLO classifier from Ultralytics. It takes a full image/frame and outputs one of these classes:
 
 ```text
 damage
 no_damage
 ```
 
-Importante: esto no dibuja cajas ni localiza exactamente donde esta el dano. Solo dice si el frame completo parece tener dano o no.
+Important: this does not draw boxes or locate exactly where the damage is. It only indicates whether the entire frame appears to have damage or not.
 
-## Modelos que hay en este repo
+## Models available in this repository
 
 ```text
-models/best.pt        -> modelo chico/viejo, 2.9 MB
-models/best82.9.pt    -> modelo final/backup, 10.2 MB
-models/bestfinal.pt   -> modelo recomendado, 10.2 MB
-yolo11n-cls.pt        -> modelo base para entrenamiento, no es el entrenado final
+models/best.pt        -> small/old model, 2.9 MB
+models/best82.9.pt    -> final/backup model, 10.2 MB
+models/bestfinal.pt   -> recommended model, 10.2 MB
+yolo11n-cls.pt        -> base model for training, not the final trained model
 ```
 
-Para el robot usa:
+For the robot, use:
 
 ```text
 robot_vision/models/bestfinal.pt
 ```
 
-## Versiones de camera_test.py
+## Versions of camera_test.py
 
 ```text
-camera_test.py   -> solo prueba que la camara capture 1 frame y guarda test.jpg
-camera_test2.py  -> muestra video crudo de la camara
-camera_test3.py  -> carga YOLO y muestra predicciones, pero usa best.pt en la raiz
+camera_test.py   -> only tests if the camera captures 1 frame and saves test.jpg
+camera_test2.py  -> shows raw video from the camera
+camera_test3.py  -> loads YOLO and shows predictions, but uses best.pt in the root
 ```
 
-Para el robot, usa mejor `robot_vision/infer_camera.py`. Es la version ordenada de esa idea: acepta argumentos, usa `models/bestfinal.pt` y puede correr con o sin ventana.
+For the robot, use better `robot_vision/infer_camera.py`. It's the ordered version of that idea: accepts arguments, uses `models/bestfinal.pt`, and can run with or without a window.
 
-## Instalar en Jetson
+## Install on Jetson
 
-En la Jetson, desde el repo del robot:
+On the Jetson, from the robot's repository:
 
 ```bash
 cd robot_vision
@@ -65,80 +65,80 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Si ya tienes PyTorch/Ultralytics instalados en el entorno del robot, no necesitas crear otro `.venv`.
+If you already have PyTorch/Ultralytics installed in the robot's environment, you don't need to create another `.venv`.
 
-## Probar que el modelo carga
+## Test that the model loads
 
-Con una imagen cualquiera:
+With any image:
 
 ```bash
 python3 smoke_test.py /ruta/a/imagen.jpg
 ```
 
-Salida esperada:
+Expected output:
 
 ```text
 class=damage conf=0.932
 ```
 
-o:
+or:
 
 ```text
 class=no_damage conf=0.884
 ```
 
-## Correr con camara
+## Run with camera
 
-Sin ventana, recomendado para integrarlo con el robot:
+Without window, recommended for integration with the robot:
 
 ```bash
 python3 infer_camera.py --camera 0
 ```
 
-Con ventana para debug:
+With window for debugging:
 
 ```bash
 python3 infer_camera.py --camera 0 --show
 ```
 
-Si la camara no abre, prueba:
+If the camera doesn't open, try:
 
 ```bash
 python3 infer_camera.py --camera 1 --show
 ```
 
-Tambien puedes pasar un pipeline GStreamer si estas usando una camara CSI:
+You can also pass a GStreamer pipeline if you're using a CSI camera:
 
 ```bash
 python3 infer_camera.py --camera "TU_PIPELINE_GSTREAMER_AQUI" --show
 ```
 
-## Salida para integrar
+## Output for integration
 
-El script imprime una linea cada medio segundo:
+The script prints a line every half second:
 
 ```text
 ok class=damage label='Dano' conf=0.932
 ok class=no_damage label='Sin dano' conf=0.884
 ```
 
-Puedes ajustar el intervalo:
+You can adjust the interval:
 
 ```bash
 python3 infer_camera.py --print-every 0.2
 ```
 
-Y puedes pedir confianza minima:
+And you can request minimum confidence:
 
 ```bash
 python3 infer_camera.py --min-conf 0.70
 ```
 
-Si la confianza queda abajo de ese valor, imprime `low_conf`.
+If the confidence is below that value, it prints `low_conf`.
 
-## Como se entreno
+## How it was trained
 
-El flujo fue:
+The flow was:
 
 ```text
 imagenes damage/no_damage
@@ -148,34 +148,34 @@ imagenes damage/no_damage
 -> best.pt / bestfinal.pt
 ```
 
-Comando base usado/recomendado:
+Base command used/recommended:
 
 ```bash
 yolo classify train data=dataset model=yolo11n-cls.pt imgsz=224 epochs=30 batch=32 name=damage_retrain
 ```
 
-Despues del entrenamiento, el peso importante queda en:
+After training, the important weight remains in:
 
 ```text
 runs/classify/damage_retrain/weights/best.pt
 ```
 
-Ese archivo se copia como:
+This file is copied as:
 
 ```text
 models/bestfinal.pt
 ```
 
-## Regla simple
+## Simple rule
 
-Para correr en el robot:
+For running on the robot:
 
 ```text
 modelo + infer_camera.py + requirements.txt
 ```
 
-Para entrenar:
+For training:
 
 ```text
-imagenes + prepare_cls_dataset.py + yolo11n-cls.pt + comandos de entrenamiento
+imagenes + prepare_cls_dataset.py + yolo11n-cls.pt + training commands
 ```

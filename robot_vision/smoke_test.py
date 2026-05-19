@@ -9,18 +9,18 @@ DEFAULT_MODEL = BASE_DIR / "models" / "bestfinal.pt"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prueba rapida de carga/prediccion del modelo.")
-    parser.add_argument("image", help="Imagen de prueba")
-    parser.add_argument("--model", default=str(DEFAULT_MODEL), help="Ruta al modelo .pt")
+    parser = argparse.ArgumentParser(description="Quick test for model loading/prediction.")
+    parser.add_argument("image", help="Test image")
+    parser.add_argument("--model", default=str(DEFAULT_MODEL), help="Path to the .pt model")
     args = parser.parse_args()
 
     model_path = Path(args.model)
     image_path = Path(args.image)
 
     if not model_path.exists():
-        raise FileNotFoundError(f"No existe el modelo: {model_path}")
+        raise FileNotFoundError(f"Model does not exist: {model_path}")
     if not image_path.exists():
-        raise FileNotFoundError(f"No existe la imagen: {image_path}")
+        raise FileNotFoundError(f"Image does not exist: {image_path}")
 
     model = YOLO(str(model_path))
     result = model.predict(str(image_path), verbose=False)[0]

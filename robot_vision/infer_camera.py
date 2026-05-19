@@ -11,31 +11,31 @@ BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL = BASE_DIR / "models" / "bestfinal.pt"
 
 LABELS = {
-    "damage": "Dano",
-    "no_damage": "Sin dano",
+    "damage": "Damage",
+    "no_damage": "No damage",
 }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Clasificacion damage/no_damage en tiempo real para Jetson/camara."
+        description="Real-time damage/no_damage classification for Jetson/camera."
     )
-    parser.add_argument("--model", default=str(DEFAULT_MODEL), help="Ruta al modelo .pt")
-    parser.add_argument("--camera", default="0", help="Indice de camara o pipeline GStreamer")
-    parser.add_argument("--width", type=int, default=640, help="Ancho de captura")
-    parser.add_argument("--height", type=int, default=480, help="Alto de captura")
-    parser.add_argument("--show", action="store_true", help="Muestra ventana con OpenCV")
+    parser.add_argument("--model", default=str(DEFAULT_MODEL), help="Path to the .pt model")
+    parser.add_argument("--camera", default="0", help="Camera index or GStreamer pipeline")
+    parser.add_argument("--width", type=int, default=640, help="Capture width")
+    parser.add_argument("--height", type=int, default=480, help="Capture height")
+    parser.add_argument("--show", action="store_true", help="Display window with OpenCV")
     parser.add_argument(
         "--min-conf",
         type=float,
         default=0.0,
-        help="Confianza minima para marcar prediccion como valida",
+        help="Minimum confidence to consider a prediction valid",
     )
     parser.add_argument(
         "--print-every",
         type=float,
         default=0.5,
-        help="Segundos entre logs de prediccion",
+        help="Seconds between prediction logs",
     )
     return parser.parse_args()
 
