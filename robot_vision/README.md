@@ -1,10 +1,66 @@
-# Rescue Vision for Jetson
+# Robot Vision
 
-Quick guide to deploy the classifier to the robot's repository.
+Vision system for the rescue robot running on the Jetson. It uses a YOLO classifier to detect whether the camera frame looks like:
 
-## What to move to the robot's repository
+```text
+damage
+no_damage
+```
 
-Move this entire folder:
+It can run continuously, and it can also save a screenshot when the ESP32 sends a serial trigger:
+
+```text
+PHOTO_TRIGGER
+```
+
+That trigger currently comes from the FlySky switch handled by the ESP32 movement code.
+
+## How It Works
+
+The flow is:
+
+```text
+FlySky switch
+-> receiver iBUS
+-> ESP32 movement code
+-> USB Serial message: PHOTO_TRIGGER
+-> Jetson Python script
+-> YOLO prediction on current frame
+-> saves image + JSON data
+```
+
+The ESP32 does not run YOLO. It only sends a small serial message. The Jetson runs the camera and the model.
+
+When the Jetson receives `PHOTO_TRIGGER`, it saves:
+
+```text
+captures/trigger-YYYYMMDD-HHMMSS.jpg
+captures/trigger-YYYYMMDD-HHMMSS.json
+```
+
+The JPG is annotated with the prediction text, for example:
+
+```text
+Damage 93.2%
+```
+
+The JSON stores the data:
+
+```json
+{
+  "timestamp": "20260521-193000",
+  "class": "damage",
+  "label": "Damage",
+  "confidence": 0.932,
+  "confidence_percent": 93.2,
+  "status": "ok",
+  "image_path": "captures/trigger-20260521-193000.jpg"
+}
+```
+
+## Files Needed On The Jetson
+
+Clone or copy this folder:
 
 ```text
 robot_vision/
@@ -16,63 +72,72 @@ robot_vision/
     `-- bestfinal.pt
 ```
 
-This is what's needed to run on the Jetson Orin. There's no need to move `dataset.zip`, `.venv`, `runs/`, `Random`, or the image folders. These are used for training or data preparation, but not for inference on the robot.
-
-## What it does
-
-The model is a YOLO classifier from Ultralytics. It takes a full image/frame and outputs one of these classes:
+The recommended model is:
 
 ```text
-damage
-no_damage
+models/bestfinal.pt
 ```
 
-Important: this does not draw boxes or locate exactly where the damage is. It only indicates whether the entire frame appears to have damage or not.
+## Install On Jetson
 
-## Models available in this repository
-
-```text
-models/best.pt        -> small/old model, 2.9 MB
-models/best82.9.pt    -> final/backup model, 10.2 MB
-models/bestfinal.pt   -> recommended model, 10.2 MB
-yolo11n-cls.pt        -> base model for training, not the final trained model
-```
-
-For the robot, use:
-
-```text
-robot_vision/models/bestfinal.pt
-```
-
-## Versions of camera_test.py
-
-```text
-camera_test.py   -> only tests if the camera captures 1 frame and saves test.jpg
-camera_test2.py  -> shows raw video from the camera
-camera_test3.py  -> loads YOLO and shows predictions, but uses best.pt in the root
-```
-
-For the robot, use better `robot_vision/infer_camera.py`. It's the ordered version of that idea: accepts arguments, uses `models/bestfinal.pt`, and can run with or without a window.
-
-## Install on Jetson
-
-On the Jetson, from the robot's repository:
+From the repository:
 
 ```bash
 cd robot_vision
-python3 -m venv .venv
+python3 -m venv .venv --system-site-packages
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you already have PyTorch/Ultralytics installed in the robot's environment, you don't need to create another `.venv`.
+If OpenCV gives trouble on Jetson, install it with apt:
 
-## Test that the model loads
+```bash
+sudo apt update
+sudo apt install python3-opencv
+```
+
+Then recreate the venv with system packages:
+
+```bash
+deactivate
+rm -rf .venv
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+pip install ultralytics pyserial
+```
+
+## Important Jetson Time Fix
+
+If `pip install` fails with SSL errors like:
+
+```text
+SystemTimeWarning: System time is way off
+certificate verify failed: certificate is not yet valid
+```
+
+fix the Jetson date/time first:
+
+```bash
+date
+sudo timedatectl set-ntp true
+sudo systemctl restart systemd-timesyncd
+date
+```
+
+If needed, set it manually:
+
+```bash
+sudo date -s "2026-05-21 19:30:00"
+```
+
+Then run `pip install` again.
+
+## Test The Model
 
 With any image:
 
 ```bash
-python3 smoke_test.py /ruta/a/imagen.jpg
+python3 smoke_test.py /path/to/image.jpg
 ```
 
 Expected output:
@@ -87,95 +152,148 @@ or:
 class=no_damage conf=0.884
 ```
 
-## Run with camera
+## Run Camera Only
 
-Without window, recommended for integration with the robot:
+Without display window:
 
 ```bash
 python3 infer_camera.py --camera 0
 ```
 
-With window for debugging:
+With display window:
 
 ```bash
 python3 infer_camera.py --camera 0 --show
 ```
 
-If the camera doesn't open, try:
+If the camera does not open:
 
 ```bash
 python3 infer_camera.py --camera 1 --show
 ```
 
-You can also pass a GStreamer pipeline if you're using a CSI camera:
+For a CSI camera, pass a GStreamer pipeline:
 
 ```bash
-python3 infer_camera.py --camera "TU_PIPELINE_GSTREAMER_AQUI" --show
+python3 infer_camera.py --camera "YOUR_GSTREAMER_PIPELINE" --show
 ```
 
-## Output for integration
+## Run With ESP32 Photo Trigger
 
-The script prints a line every half second:
+Connect the ESP32 to the Jetson using USB:
 
 ```text
-ok class=damage label='Dano' conf=0.932
-ok class=no_damage label='Sin dano' conf=0.884
+Jetson USB -> ESP32 USB
 ```
 
-You can adjust the interval:
+That cable handles both:
+
+```text
+power + serial communication
+```
+
+Find the ESP32 serial port:
 
 ```bash
-python3 infer_camera.py --print-every 0.2
+ls /dev/ttyUSB* /dev/ttyACM*
 ```
 
-And you can request minimum confidence:
+It will usually be one of these:
+
+```text
+/dev/ttyUSB0
+/dev/ttyACM0
+```
+
+Run vision with trigger support:
 
 ```bash
-python3 infer_camera.py --min-conf 0.70
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --show
 ```
 
-If the confidence is below that value, it prints `low_conf`.
-
-## How it was trained
-
-The flow was:
-
-```text
-imagenes damage/no_damage
--> prepare_cls_dataset.py
--> dataset/train y dataset/val
--> yolo classify train
--> best.pt / bestfinal.pt
-```
-
-Base command used/recommended:
+or:
 
 ```bash
-yolo classify train data=dataset model=yolo11n-cls.pt imgsz=224 epochs=30 batch=32 name=damage_retrain
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyACM0 --show
 ```
 
-After training, the important weight remains in:
+When the ESP32 sends:
 
 ```text
-runs/classify/damage_retrain/weights/best.pt
+PHOTO_TRIGGER
 ```
 
-This file is copied as:
+the script prints something like:
 
 ```text
-models/bestfinal.pt
+photo_saved metadata=captures/trigger-20260521-193000.json class=damage conf=0.932
 ```
 
-## Simple rule
-
-For running on the robot:
+and saves the JPG + JSON in:
 
 ```text
-modelo + infer_camera.py + requirements.txt
+captures/
 ```
 
-For training:
+## Serial Permission Fix
+
+If the serial port exists but Python cannot open it, add the user to `dialout`:
+
+```bash
+sudo usermod -a -G dialout $USER
+```
+
+Then log out and back in, or reboot the Jetson.
+
+## Useful Commands
+
+Run with confidence threshold:
+
+```bash
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --min-conf 0.70 --show
+```
+
+Save captures somewhere else:
+
+```bash
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --capture-dir ~/Desktop/captures --show
+```
+
+Print predictions faster:
+
+```bash
+python3 infer_camera.py --camera 0 --print-every 0.2
+```
+
+## What The Script Prints
+
+Normal prediction log:
 
 ```text
-imagenes + prepare_cls_dataset.py + yolo11n-cls.pt + training commands
+ok class=damage label='Damage' conf=0.932
+ok class=no_damage label='No damage' conf=0.884
 ```
+
+Low confidence:
+
+```text
+low_conf class=damage label='Damage' conf=0.421
+```
+
+Photo trigger:
+
+```text
+photo_saved metadata=captures/trigger-20260521-193000.json class=damage conf=0.932
+```
+
+## Quick Full Run
+
+Most common robot command:
+
+```bash
+cd robot_vision
+source .venv/bin/activate
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --show
+```
+
+Use the FlySky switch once to save one capture. To save another one, switch it off and on again.
