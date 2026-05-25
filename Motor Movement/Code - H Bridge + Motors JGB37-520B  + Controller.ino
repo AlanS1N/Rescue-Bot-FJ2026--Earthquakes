@@ -1,26 +1,32 @@
 // ============================================================
 // ROCKER BOGIE ROVER
-// ESP32 + 2x IBT2 + FlySky iBUS & Controller
+// ESP32 + 2x IBT2 + FlySky iBUS
 // ============================================================
 
-// ----------- IBT-2 RIGHT -----------
+// ---------------- RIGHT IBT2 ----------------
 const int RPWM_R = 25;
 const int LPWM_R = 26;
 const int R_EN_R = 27;
 const int L_EN_R = 14;
 
-// ----------- IBT-2 LEFT -----------
+// ---------------- LEFT IBT2 -----------------
 const int RPWM_L = 33;
 const int LPWM_L = 32;
 const int R_EN_L = 13;
 const int L_EN_L = 12;
 
+<<<<<<< HEAD:H Bridge IBT_2 + Motor JGB37-520B + FlySky/Code - Motor Movement
 // ----------- iBUS -----------
 uint16_t chThrottle = 1500;
 uint16_t chSteering = 1500;
 uint16_t chSWA = 1000;
 
 bool swaActivoAnterior = false;
+=======
+// ---------------- IBUS ----------------------
+uint16_t chSteering = 1500;   // CH1 -> derecha/izquierda
+uint16_t chThrottle = 1500;   // CH2 -> adelante/atras
+>>>>>>> 4846d4cf8a19b8c6c966b2215c6898a16b803a7d:Motor Movement/Code - H Bridge + Motors JGB37-520B  + Controller.ino
 
 unsigned long ultimaLectura = 0;
 
@@ -37,6 +43,7 @@ void leerIBus() {
 
     uint8_t b = Serial2.read();
 
+    // HEADER
     if (indice == 0 && b != 0x20) continue;
 
     if (indice == 1 && b != 0x40) {
@@ -48,28 +55,38 @@ void leerIBus() {
 
     if (indice == 32) {
 
+      // CH1
       uint16_t tempCH1 =
         buffer[2] |
         (buffer[3] << 8);
 
+      // CH2
       uint16_t tempCH2 =
         buffer[4] |
         (buffer[5] << 8);
 
+<<<<<<< HEAD:H Bridge IBT_2 + Motor JGB37-520B + FlySky/Code - Motor Movement
       uint16_t tempCH7 =
         buffer[14] |
         (buffer[15] << 8);
 
       if (tempCH1 >= 800 && tempCH1 <= 2200) {
+=======
+      // VALIDACION
+      if (tempCH1 >= 900 && tempCH1 <= 2100) {
+
+        // Menos filtrado = respuesta más rápida
+>>>>>>> 4846d4cf8a19b8c6c966b2215c6898a16b803a7d:Motor Movement/Code - H Bridge + Motors JGB37-520B  + Controller.ino
         chSteering =
-          (chSteering * 0.7) +
-          (tempCH1 * 0.3);
+          (chSteering * 0.5) +
+          (tempCH1 * 0.5);
       }
 
-      if (tempCH2 >= 800 && tempCH2 <= 2200) {
+      if (tempCH2 >= 900 && tempCH2 <= 2100) {
+
         chThrottle =
-          (chThrottle * 0.7) +
-          (tempCH2 * 0.3);
+          (chThrottle * 0.5) +
+          (tempCH2 * 0.5);
       }
 
       if (tempCH7 >= 800 && tempCH7 <= 2200) {
@@ -77,6 +94,7 @@ void leerIBus() {
       }
 
       ultimaLectura = millis();
+
       indice = 0;
     }
   }
@@ -90,16 +108,17 @@ void setup() {
 
   Serial.begin(115200);
 
+  // iBUS RX -> GPIO16
   Serial2.begin(115200, SERIAL_8N1, 16, -1);
 
-  // RIGHT
+  // ---------------- RIGHT ----------------
   pinMode(R_EN_R, OUTPUT);
   pinMode(L_EN_R, OUTPUT);
 
   digitalWrite(R_EN_R, HIGH);
   digitalWrite(L_EN_R, HIGH);
 
-  // LEFT
+  // ---------------- LEFT -----------------
   pinMode(R_EN_L, OUTPUT);
   pinMode(L_EN_L, OUTPUT);
 
@@ -113,6 +132,8 @@ void setup() {
   ledcAttach(RPWM_L, 20000, 8);
   ledcAttach(LPWM_L, 20000, 8);
 
+  frenar();
+
   Serial.println("ROVER READY");
 }
 
@@ -125,25 +146,35 @@ void loop() {
   leerIBus();
   revisarSWA();
 
+  // ==========================================================
   // FAILSAFE
+  // ==========================================================
+
   if (millis() - ultimaLectura > 300) {
+
     frenar();
     return;
   }
 
+  // ==========================================================
   // MAPEO
+  // ==========================================================
+
   int throttle =
-    map(chThrottle, 1000, 2000, -255, 255);
+    map(chThrottle, 1000, 2000, 255, -255);
 
   int steering =
-    map(chSteering, 1000, 2000, -255, 255);
-
-  // DEADZONE
-  if (abs(throttle) < 30) throttle = 0;
-  if (abs(steering) < 30) steering = 0;
+    map(chSteering, 1000, 2000, 255, -255);
 
   // ==========================================================
-  // TANK MIX
+  // DEADZONE
+  // ==========================================================
+
+  if (abs(throttle) < 15) throttle = 0;
+  if (abs(steering) < 15) steering = 0;
+
+  // ==========================================================
+  // DIFERENTIAL DRIVE MIX
   // ==========================================================
 
   int velIzq = throttle + steering;
@@ -154,7 +185,10 @@ void loop() {
 
   moverMotores(velIzq, velDer);
 
+  // ==========================================================
   // DEBUG
+  // ==========================================================
+
   Serial.print("THR: ");
   Serial.print(throttle);
 
@@ -167,7 +201,7 @@ void loop() {
   Serial.print(" R: ");
   Serial.println(velDer);
 
-  delay(10);
+  delay(5);
 }
 
 // ============================================================
@@ -191,7 +225,10 @@ void revisarSWA() {
 
 void moverMotores(int izq, int der) {
 
-  // ================= LEFT =================
+  // ==========================================================
+  // LEFT SIDE
+  // ==========================================================
+
   if (izq > 0) {
 
     ledcWrite(RPWM_L, izq);
@@ -203,7 +240,13 @@ void moverMotores(int izq, int der) {
     ledcWrite(LPWM_L, abs(izq));
   }
 
-  // ================= RIGHT =================
+  // ==========================================================
+  // RIGHT SIDE
+  // INVERTIDO
+  // ==========================================================
+
+  der = -der;
+
   if (der > 0) {
 
     ledcWrite(RPWM_R, der);

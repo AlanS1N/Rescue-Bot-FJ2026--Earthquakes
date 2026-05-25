@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////
-//         ESP-NOW TX + BNO08X HEAD TRACKING           //
+//        ESP-NOW TX + BNO08X (YAW + ROLL)            //
 /////////////////////////////////////////////////////////
 
 #include <WiFi.h>
@@ -20,7 +20,7 @@
 /////////////////////////////////////////////////////////
 
 uint8_t receiverAddress[] = {
-  0xB0, 0xCB, 0xD8, 0xCD, 0x1E, 0xA0
+  0xB0, 0xA7, 0x32, 0x2A, 0x5B, 0xd8
 };
 
 /////////////////////////////////////////////////////////
@@ -30,7 +30,7 @@ uint8_t receiverAddress[] = {
 typedef struct {
 
   float yaw;
-  float pitch;
+  float roll;
 
 } DataPacket;
 
@@ -49,12 +49,12 @@ sh2_SensorValue_t sensorValue;
 /////////////////////////////////////////////////////////
 
 float yawOffset = 0;
-float pitchOffset = 0;
+float rollOffset = 0;
 
 bool calibrated = false;
 
 /////////////////////////////////////////////////////////
-// CALLBACK
+// SEND CALLBACK
 /////////////////////////////////////////////////////////
 
 void onDataSent(
@@ -84,7 +84,7 @@ void setup() {
 
   Serial.println();
   Serial.println("=================================");
-  Serial.println("     BNO08X HEAD TRACKING TX");
+  Serial.println("      BNO08X YAW + ROLL TX");
   Serial.println("=================================");
 
   /////////////////////////////////////////////////////////
@@ -233,11 +233,13 @@ void loop() {
       ) * 180.0 / PI;
 
       /////////////////////////////////////////////////////
-      // PITCH
+      // ROLL
       /////////////////////////////////////////////////////
 
-      float pitch = asin(
-        2.0 * (qw*qy - qz*qx)
+      float roll = atan2(
+        2.0 * (qw*qx + qy*qz),
+        1.0 - 2.0 *
+        (qx*qx + qy*qy)
       ) * 180.0 / PI;
 
       /////////////////////////////////////////////////////
@@ -248,7 +250,7 @@ void loop() {
 
         yawOffset = yaw;
 
-        pitchOffset = pitch;
+        rollOffset = roll;
 
         calibrated = true;
 
@@ -262,8 +264,8 @@ void loop() {
       float relativeYaw =
         yaw - yawOffset;
 
-      float relativePitch =
-        pitch - pitchOffset;
+      float relativeRoll =
+        roll - rollOffset;
 
       /////////////////////////////////////////////////////
       // FIX WRAPAROUND
@@ -275,6 +277,12 @@ void loop() {
       if (relativeYaw < -180)
         relativeYaw += 360;
 
+      if (relativeRoll > 180)
+        relativeRoll -= 360;
+
+      if (relativeRoll < -180)
+        relativeRoll += 360;
+
       /////////////////////////////////////////////////////
       // DEADZONE
       /////////////////////////////////////////////////////
@@ -282,11 +290,11 @@ void loop() {
       if (abs(relativeYaw) < 1.0)
         relativeYaw = 0;
 
-      if (abs(relativePitch) < 1.0)
-        relativePitch = 0;
+      if (abs(relativeRoll) < 1.0)
+        relativeRoll = 0;
 
       /////////////////////////////////////////////////////
-      // LIMIT HUMAN HEAD RANGE
+      // LIMITS
       /////////////////////////////////////////////////////
 
       relativeYaw = constrain(
@@ -295,9 +303,9 @@ void loop() {
         90
       );
 
-      relativePitch = constrain(
-        relativePitch,
-        -22,
+      relativeRoll = constrain(
+        relativeRoll,
+        -45,
         45
       );
 
@@ -307,7 +315,7 @@ void loop() {
 
       data.yaw = relativeYaw;
 
-      data.pitch = relativePitch;
+      data.roll = relativeRoll;
 
       /////////////////////////////////////////////////////
       // SEND
@@ -327,9 +335,9 @@ void loop() {
 
       Serial.print(data.yaw);
 
-      Serial.print(" | Pitch: ");
+      Serial.print(" | Roll: ");
 
-      Serial.println(data.pitch);
+      Serial.println(data.roll);
     }
   }
 

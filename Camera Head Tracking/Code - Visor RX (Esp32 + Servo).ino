@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////
-//         ESP-NOW RX + HEAD TRACKING SERVOS           //
+//       ESP-NOW RX + SERVOS (YAW + ROLL)             //
 /////////////////////////////////////////////////////////
 
 #include <WiFi.h>
@@ -22,7 +22,7 @@
 typedef struct {
 
   float yaw;
-  float pitch;
+  float roll;
 
 } DataPacket;
 
@@ -39,14 +39,14 @@ volatile bool newData = false;
 /////////////////////////////////////////////////////////
 
 Servo servoYaw;
-Servo servoPitch;
+Servo servoRoll;
 
 /////////////////////////////////////////////////////////
 // CURRENT POSITIONS
 /////////////////////////////////////////////////////////
 
 float currentYaw = 90;
-float currentPitch = 90;
+float currentRoll = 90;
 
 /////////////////////////////////////////////////////////
 // SERVO LIMITS
@@ -55,8 +55,8 @@ float currentPitch = 90;
 const int YAW_MIN = 5;
 const int YAW_MAX = 175;
 
-const int PITCH_MIN = 30;
-const int PITCH_MAX = 150;
+const int ROLL_MIN = 30;
+const int ROLL_MAX = 150;
 
 /////////////////////////////////////////////////////////
 // RECEIVE CALLBACK
@@ -93,7 +93,7 @@ void setup() {
 
   Serial.println();
   Serial.println("=================================");
-  Serial.println("      HEAD TRACKING RX");
+  Serial.println("        YAW + ROLL RX");
   Serial.println("=================================");
 
   /////////////////////////////////////////////////////////
@@ -140,11 +140,11 @@ void setup() {
 
   servoYaw.setPeriodHertz(50);
 
-  servoPitch.setPeriodHertz(50);
+  servoRoll.setPeriodHertz(50);
 
   servoYaw.attach(21, 500, 2500);
 
-  servoPitch.attach(19, 500, 2500);
+  servoRoll.attach(19, 500, 2500);
 
   /////////////////////////////////////////////////////////
   // CENTER SERVOS
@@ -152,7 +152,7 @@ void setup() {
 
   servoYaw.write(90);
 
-  servoPitch.write(90);
+  servoRoll.write(90);
 
   delay(1000);
 
@@ -177,7 +177,7 @@ void loop() {
 
     float yaw = latestData.yaw;
 
-    float pitch = latestData.pitch;
+    float roll = latestData.roll;
 
     /////////////////////////////////////////////////////////
     // MAP YAW
@@ -192,15 +192,15 @@ void loop() {
     );
 
     /////////////////////////////////////////////////////////
-    // INVERTED PITCH
+    // MAP ROLL
     /////////////////////////////////////////////////////////
 
-    float pitchServoPos = map(
-      -pitch,
-      -22,
+    float rollServoPos = map(
+      -roll,
+      -45,
       45,
-      PITCH_MIN,
-      PITCH_MAX
+      ROLL_MIN,
+      ROLL_MAX
     );
 
     /////////////////////////////////////////////////////////
@@ -213,10 +213,10 @@ void loop() {
       YAW_MAX
     );
 
-    pitchServoPos = constrain(
-      pitchServoPos,
-      PITCH_MIN,
-      PITCH_MAX
+    rollServoPos = constrain(
+      rollServoPos,
+      ROLL_MIN,
+      ROLL_MAX
     );
 
     /////////////////////////////////////////////////////////
@@ -226,8 +226,8 @@ void loop() {
     currentYaw +=
       (yawServoPos - currentYaw) * 0.12;
 
-    currentPitch +=
-      (pitchServoPos - currentPitch) * 0.12;
+    currentRoll +=
+      (rollServoPos - currentRoll) * 0.12;
 
     /////////////////////////////////////////////////////////
     // MOVE SERVOS
@@ -235,7 +235,7 @@ void loop() {
 
     servoYaw.write((int)currentYaw);
 
-    servoPitch.write((int)currentPitch);
+    servoRoll.write((int)currentRoll);
 
     /////////////////////////////////////////////////////////
     // DEBUG
@@ -245,17 +245,17 @@ void loop() {
 
     Serial.print(yaw);
 
-    Serial.print(" | Pitch: ");
+    Serial.print(" | Roll: ");
 
-    Serial.print(pitch);
+    Serial.print(roll);
 
     Serial.print(" | ServoYaw: ");
 
     Serial.print(currentYaw);
 
-    Serial.print(" | ServoPitch: ");
+    Serial.print(" | ServoRoll: ");
 
-    Serial.println(currentPitch);
+    Serial.println(currentRoll);
   }
 
   delay(5);
