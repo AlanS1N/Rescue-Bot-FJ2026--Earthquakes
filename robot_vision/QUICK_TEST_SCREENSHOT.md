@@ -78,7 +78,7 @@ Para salir, presiona `q`.
 Si tu puerto fue `/dev/ttyUSB0`:
 
 ```bash
-python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --baud 115200 --show
+python3 infer_camera.py --camera 0 --serial-port /dev/ttyUSB0 --baud 115200 --sho
 ```
 
 Si tu puerto fue `/dev/ttyACM0`:

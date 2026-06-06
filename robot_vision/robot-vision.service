@@ -1,0 +1,19 @@
+[Unit]
+Description=Robot Vision Service
+After=network.target
+
+[Service]
+Type=simple
+User=jetson
+WorkingDirectory=/home/jetson/robot_vision
+ExecStart=/home/jetson/robot_vision/start_vision.sh
+Restart=on-failure
+RestartSec=10
+
+# Output logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=robot-vision
+
+[Install]
+WantedBy=multi-user.target
