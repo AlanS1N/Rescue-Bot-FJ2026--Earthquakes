@@ -6,6 +6,7 @@
 - **Guarda logs** en `robot_vision/logs/` con timestamp
 - **Reinicia automáticamente** si falla
 - **Cámara 0 fija** (sin necesidad de cambiar parámetros)
+- **Corre headless**: no usa `--show` en el servicio systemd
 
 ## Instalación en la Jetson
 

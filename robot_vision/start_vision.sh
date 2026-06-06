@@ -73,10 +73,17 @@ fi
 
 # Correr vision
 log_msg "Iniciando infer_camera.py..."
-log_msg "Comando: python3 infer_camera.py --camera 0 --serial-port $SERIAL_PORT --baud 115200 --show"
+log_msg "Comando: python3 infer_camera.py --camera 0 --serial-port $SERIAL_PORT --baud 115200"
 log_msg "=========================================="
 
-python3 infer_camera.py --camera 0 --serial-port "$SERIAL_PORT" --baud 115200 --show >> "$LOG_FILE" 2>&1
+# No mostrar ventana gráfica en el servicio de systemd (headless)
+SHOW_ARG=""
+if [ "${SHOW_WINDOW:-false}" = "true" ]; then
+    SHOW_ARG="--show"
+    log_msg "SHOW_WINDOW=true: se habilitará la ventana OpenCV"
+fi
+
+python3 infer_camera.py --camera 0 --serial-port "$SERIAL_PORT" --baud 115200 $SHOW_ARG >> "$LOG_FILE" 2>&1
 
 EXIT_CODE=$?
 log_msg "========== Script finalizado (exit code: $EXIT_CODE) =========="
