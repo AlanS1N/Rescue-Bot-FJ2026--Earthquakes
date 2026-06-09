@@ -67,7 +67,24 @@ def open_esp32_serial(port: Optional[str], baud: int) -> Optional[serial.Serial]
     if not port:
         return None
 
-    return serial.Serial(port, baudrate=baud, timeout=0)
+    try:
+        ser = serial.Serial(port, baudrate=baud, timeout=0)
+        print(f"ESP32 serial abierto en {port} @ {baud}", flush=True)
+        return ser
+    except Exception as e:
+        print(f"No pude abrir puerto serial {port}: {e}", flush=True)
+        return None
+
+
+def detect_serial_port() -> Optional[str]:
+    # Busca ttyUSB* y ttyACM* y devuelve la primera que exista
+    for port in sorted(Path('/dev').glob('ttyUSB*')):
+        if port.exists():
+            return str(port)
+    for port in sorted(Path('/dev').glob('ttyACM*')):
+        if port.exists():
+            return str(port)
+    return None
 
 
 def read_serial_events(esp32: Optional[serial.Serial]) -> List[str]:
@@ -149,6 +166,13 @@ def main() -> None:
     if not cap.isOpened():
         raise RuntimeError("No pude abrir la camara. Prueba --camera 1 o revisa el pipeline.")
 
+    # Intentar abrir serial si se pasó por args, si no, detectar automáticamente
+    if not args.serial_port:
+        detected = detect_serial_port()
+        if detected:
+            args.serial_port = detected
+            print(f"Puerto serial detectado automáticamente: {args.serial_port}", flush=True)
+
     esp32 = open_esp32_serial(args.serial_port, args.baud)
     capture_dir = Path(args.capture_dir)
     last_print = 0.0
@@ -159,6 +183,14 @@ def main() -> None:
             if not ok:
                 print("No se pudo leer frame")
                 break
+
+            # Si no tenemos serial abierto, intentar reconectar cada N iteraciones
+            if esp32 is None:
+                detected = detect_serial_port()
+                if detected:
+                    esp32 = open_esp32_serial(detected, args.baud)
+                    if esp32 is not None:
+                        print(f"ESP32 conectado en {detected}", flush=True)
 
             result = model.predict(frame, verbose=False)[0]
             top_id = int(result.probs.top1)
