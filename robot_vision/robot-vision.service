@@ -1,19 +1,23 @@
 [Unit]
 Description=Robot Vision Service
-After=network.target
+After=network.target graphical.target
+Wants=graphical.target
 
 [Service]
 Type=simple
-User=jetson
-WorkingDirectory=/home/jetson/robot_vision
-ExecStart=/home/jetson/robot_vision/start_vision.sh
+User=traxxas
+WorkingDirectory=/home/traxxas/Desktop/rescue_robot/Final_old/robot_vision
+ExecStart=/home/traxxas/Desktop/rescue_robot/Final_old/robot_vision/start_vision.sh
+Environment=DISPLAY=:0
+# If your user has an Xauthority file, provide its path so systemd service can connect to X
+Environment=XAUTHORITY=/home/traxxas/.Xauthority
+# Instruct the start script to show the OpenCV window
+Environment=SHOW_WINDOW=true
 Restart=on-failure
 RestartSec=10
-
-# Output logs
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=robot-vision
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target

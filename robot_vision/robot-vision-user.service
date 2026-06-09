@@ -1,0 +1,19 @@
+[Unit]
+Description=Robot Vision Service (User Session)
+After=graphical-session.target
+PartOf=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/Desktop/rescue_robot/Final_old/robot_vision/start_vision.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=robot-vision
+# Permitir que la aplicación acceda a DISPLAY del usuario actual
+Environment=SHOW_WINDOW=true
+
+[Install]
+WantedBy=graphical-session.target
