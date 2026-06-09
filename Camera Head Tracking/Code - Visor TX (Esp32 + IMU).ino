@@ -16,11 +16,11 @@
 #define ESPNOW_CHANNEL 1
 
 /////////////////////////////////////////////////////////
-// RX MAC ADDRESS
+// RX MAC ADDRESS          !! MUST CHANGE WITH PROPER !!
 /////////////////////////////////////////////////////////
 
 uint8_t receiverAddress[] = {
-  0xB0, 0xA7, 0x32, 0x2A, 0x5B, 0xd8
+  0x20, 0xE7, 0xC8, 0x67, 0x6F, 0xF8
 };
 
 /////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ void setup() {
   // I2C
   /////////////////////////////////////////////////////////
 
-  Wire.begin(21, 22);
+  Wire.begin(21, 19);
 
   Wire.setClock(50000);
 
@@ -111,7 +111,7 @@ void setup() {
 
       while (1);
     }
-  }
+  }¿
 
   Serial.println("BNO08X READY");
 
