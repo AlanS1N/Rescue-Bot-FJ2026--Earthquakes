@@ -2,7 +2,7 @@
 >[!WARNING]
 >This is Work in Progress Project at the Tecnológico de Monterrey Campus Puebla.
 
-![banner-RescueBot](https://github.com/user-attachments/assets/04bc63f2-94f4-47e5-bdb3-1829c1a25798)
+![banner-RescueBot](https://github.com/user-attachments/assets/00efe0d9-bb26-4452-a0ac-ce617ab37186)
 
 
 
@@ -62,7 +62,7 @@ The system **will be** validated in a simulated disaster scenario to evaluate te
 # Circuit Connections
 The complete circuit diagram is shown below:
 
-<img width="1408" height="1075" alt="Captura desde 2026-05-14 22-33-53" src="https://github.com/user-attachments/assets/9b00159b-af51-41ec-84b3-2254f878ff1c" />
+<img width="1045" height="965" alt="Captura desde 2026-06-09 13-00-33" src="https://github.com/user-attachments/assets/50d19934-df45-4401-9e7f-ec7f88c1c012" />
 
 # Materials
 
@@ -71,20 +71,27 @@ The material list used is listed below:
 |          Name           | Units |
 |-------------------------|-------|
 | JGB37-520B              |   6   |
-| Servomotor MG995        |   2   |
+| Servomotor MG995        |   1   |
+| Servomotor MG996        |   1   |
 | H Bridge BTS7960 IBT_2  |   2   |
 | GY-BNO085               |   1   |
 | ESP32 DEVKIT 30 Pines   |   2   |
+| Jetson Nano Ori         |   1   |
 | FPV Set TS5823Pro       |   1   |
 | Logitech C920 Webcam    |   1   |
 | EMAX Transporter 2      |   1   |
-| 1K Ohms Resistor        |   2   |
+| FlySky FS-i6x Control   |   1   |
+| FlySky FS-iA6 Rx        |   1   |
+| PLA Filament            |   1   |
+| TPU Filament            |   1   |
+| Perf. phenolic board    |   2   |
+| Screws(various lengths) |  ±14  |
 
 # Future Goals
 This project is planned to be worked on further more with other students at Tecnológico de Monterrey Campus Puebla, under the supervision of Dr. Roberto R. Flores Quintero.
 
 Some current future goals involve:
 - 🧠 Deeper training and testing of the computer vision system.
+- 🔧 Redisign the structure to for increased stability and access to components
 - 🌡️ Adding thermal vision for detecting gases and possible life signals.
-- 🔧 Adding more useful sensors to the robot.
 - 🕶️ Developing a VR simulated environment.
