@@ -8,14 +8,9 @@
 - [Computer Vision](#-computer-vision)
 - [Teleoperated Control](#-teleoperated-control)
 - [Head Tracking](#-head-tracking)
+- [Batteries](#-batteries-implementation)
+- [Complete Integration](#-complete-integration)
 ---
-
-!!! Pending List:
-- External batteries implementation
-- Migration from Jetson - Rasp
-- Add turning to code
-- Camera Transmisor properly attached to mechanism
-- Circuit box for visor manufacture
 
 ---
 # 🛠 CAD Design
@@ -34,8 +29,6 @@
 - FlySky components integrated: RX and controller fully integrated and tested.
 - PCBs for circuits completed: Made custom PCB for ESP32 with IMU.
 - Servo mechanism with IMU implemented: Cameras slots and movement implemented.
-  
-- External batteries implementation PENDING !!!
 
 ### 🎥 Video
 <img width="500" height="500" alt="Video_Github" src="https://github.com/user-attachments/assets/23013398-d90f-4d0e-acee-e07c7640ce44" />
@@ -47,8 +40,6 @@
 - Database collected: Received database for training model.
 - Yolo model prototype: Functional prototype tested.
 
-- Migration from Jetson - Rasp PENDING !!!
-
 ### 🎥 Video
 <img width="500" height="500" alt="Modelo_Test" src="https://github.com/user-attachments/assets/fd165108-aba0-487d-88db-3871e7fc78fa" />
 
@@ -59,23 +50,39 @@
 - Motors fully operational: H-Bridges connected to all 6 motors and working.
 - ESP and controller connected: Recieves signal and moves motors in given direction.
 
-
-- Add turning to code PENDING !!!
-
 ### 🎥 Video
-<img width="692" height="388" alt="ola" src="https://github.com/user-attachments/assets/de053e34-09b2-4989-a0ac-4ddd246581a6" />
+<img width="500" height="500" alt="Movement_Tests" src="https://github.com/user-attachments/assets/b1f01bd9-5580-47a1-9d12-4680e6554b4d" />
 
 ---
 
 # 🥽 Head Tracking
 ### 📌 Progress
 - ESP-Now protocol implemented: Communication without Wi-Fi nor Bluetooth between circuits.
-
-- Camera transmisor properly attached to mechanism PENDING !!!
-- Circuit box for visor manufacture PENDING !!!
+- Servos moving according to IMU.
 
 ### 🎥 Video
-<img width="960" height="540" alt="chalala" src="https://github.com/user-attachments/assets/14b4c58f-937f-47ec-837b-f1b7ed04fcdf" />
+<img width="500" height="500" alt="Visor_TEst" src="https://github.com/user-attachments/assets/52115490-7288-4b00-8239-878abe4a4dca" />
+
+---
+
+# 🔋 Batteries implementation
+### 📌 Progress
+- Soldered cables to energize dedicated components.
+- Added switches to turn on energy easily,
+
+### 🖼 Preview (Solidworks)
+<img width="500" height="500" alt="Batteries" src="https://github.com/user-attachments/assets/7f3b23b9-489b-4ccc-b83d-03d1a586ce6b" />
+
+---
+
+# ✅ Complete Integration
+### 📌 Progress
+- Make adjustments for all components to be interconnected and functional.
+- ESP32 recieves communication through ESP-NOW and the controller.
+- ESP32 controls all logic succesfully.
+
+### 🎥 Video
+<img width="500" height="500" alt="Integration" src="https://github.com/user-attachments/assets/c6a6a07a-03c2-4edf-b1de-f560afa2fbee" />
 
 ---
 👉 [Back to Main Description](https://github.com/AlanS1N/Rescue-Bot-FJ2026--Earthquakes)
