@@ -26,7 +26,11 @@ This project focuses on the analysis of structural damages and failures caused b
 
 The system **will be** validated in a simulated disaster scenario to evaluate technical performance, exploration efficiency, and its utility in supporting rescue missions and structural diagnostics.
 
-📜 (WIP) The paper developed alongside the documentation in Github can be viewwed <a href="https://www.overleaf.com/read/qfjzchcjjjqq#3e95bf">by clicking here.</a>
+📜 Click here to <a href="https://www.overleaf.com/read/qfjzchcjjjqq#3e95bf"> VIEW the paper developed alongside the documentation in Github.</a> (WORK IN PROGRESS)
+
+📷 Click here to<a href="https://1024terabox.com/s/1G64Ih9HwfPtlZVFDbBaQSw"> DOWNLOAD the the DATASET used to train the vision system</a>, provided by Dr. Romeo Ballinas González.
+
+👁️ Click here to<a href="https://1024terabox.com/s/1AKwh-wiAku7Wo5QE4bYNWA"> DOWNLOAD the the VISION SYSTEM LOCAL FILES used to train the vision system.</a> (40.6 GiB)
 
 **Key Features:**
   1. Teleoperated movement.
